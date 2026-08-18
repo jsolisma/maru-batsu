@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Maru Batsu — kana practice</title>
+<meta name="description" content="Learn hiragana and katakana by sound. Offline, no accounts, no tracking.">
+<meta name="theme-color" content="#16294a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Maru Batsu">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%2316294a'/><text y='.9em' x='50%25' text-anchor='middle' font-size='78' fill='%23fcfbf7'>あ</text></svg>">
+<style>
+  /* ── tokens ─────────────────────────────────────────────
+     ai      #16294a  indigo ground (藍)
+     sumi    #14161c  ink
+     washi   #fcfbf7  paper
+     shu     #e0473a  correction vermilion (朱), used for ✕ batsu
+     matcha  #0e8a63  green, used for ○ maru
+     kohaku  #f2b632  amber, streak + progress
+  */
+  :root{
+    --ai:#16294a; --ai-deep:#0f1c34; --sumi:#14161c; --washi:#fcfbf7;
+    --shu:#e0473a; --matcha:#0e8a63; --kohaku:#f2b632;
+    --grid:#c9d3e6; --muted:#7d8aa3;
+    --ui: ui-rounded,"SF Pro Rounded","Hiragino Maru Gothic ProN","Quicksand",
+          -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    --kana: "Hiragino Mincho ProN","Yu Mincho",YuMincho,"Noto Serif JP",
+            "MS Mincho",serif;
+    --r:18px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    margin:0; font-family:var(--ui); color:var(--washi);
+    background:
+      radial-gradient(120% 80% at 50% -10%, #24406e 0%, var(--ai) 45%, var(--ai-deep) 100%);
+    background-attachment:fixed;
+    display:flex; flex-direction:column; align-items:center;
+    padding:max(10px,env(safe-area-inset-top)) 14px max(14px,env(safe-area-inset-bottom));
+    overscroll-behavior:none; -webkit-user-select:none; user-select:none;
+  }
+  .app{width:100%;max-width:520px;flex:1;display:flex;flex-direction:column;gap:14px}
+  button{font-family:inherit;font-size:inherit;cursor:pointer;border:0;background:none;color:inherit}
+  :focus-visible{outline:3px solid var(--kohaku);outline-offset:3px;border-radius:6px}
+
+  /* ── top bar ── */
+  .bar{display:flex;align-items:center;gap:10px}
+  .chip{
+    display:flex;align-items:center;gap:6px;padding:7px 11px;border-radius:999px;
+    background:rgba(255,255,255,.09);font-size:14px;font-weight:700;
+    border:1px solid rgba(255,255,255,.12);white-space:nowrap
+  }
+  .chip.streak{color:var(--kohaku)}
+  .icon-btn{
+    width:42px;height:42px;border-radius:14px;display:grid;place-items:center;
+    background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.12);font-size:19px
+  }
+  .icon-btn:active{transform:scale(.94)}
+  .spacer{flex:1}
+  .track{height:10px;border-radius:99px;background:rgba(255,255,255,.13);overflow:hidden}
+  .fill{height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--kohaku),#ffd875);transition:width .35s ease}
+  .meta{display:flex;justify-content:space-between;gap:10px;margin-top:6px;font-size:12.5px;font-weight:700;color:#a8b8d4}
+  .chip.level{color:#cfe0ff}
+  .chip.level.max{color:var(--kohaku)}
+
+  /* ── prompt card: genkō yōshi cell ── */
+  .stage{flex:1;display:flex;flex-direction:column;justify-content:center;gap:16px;min-height:0}
+  .ask{text-align:center;font-size:15px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#a8b8d4}
+  .cell{
+    position:relative;width:min(72vw,300px);aspect-ratio:1;margin:0 auto;border-radius:10px;
+    background:var(--washi);
+    box-shadow:0 18px 40px rgba(0,0,0,.38), 0 0 0 3px rgba(252,251,247,.18);
+    display:grid;place-items:center;overflow:hidden
+  }
+  /* dotted cross guides of manuscript paper */
+  .cell::before,.cell::after{
+    content:"";position:absolute;background-image:linear-gradient(var(--grid) 55%,transparent 0);
+  }
+  .cell::before{left:50%;top:6%;bottom:6%;width:2px;margin-left:-1px;background-size:2px 12px}
+  .cell::after{top:50%;left:6%;right:6%;height:2px;margin-top:-1px;
+    background-image:linear-gradient(90deg,var(--grid) 55%,transparent 0);background-size:12px 2px}
+  .glyph{
+    position:relative;z-index:1;color:var(--sumi);line-height:1;
+    font-family:var(--kana);font-size:clamp(84px,32vw,170px);
+    animation:drop .28s cubic-bezier(.2,1.4,.5,1)
+  }
+  .glyph.romaji{font-family:var(--ui);font-weight:800;font-size:clamp(56px,20vw,104px);letter-spacing:-.02em}
+  @keyframes drop{from{opacity:0;transform:translateY(-14px) scale(.9)}to{opacity:1}}
+
+  /* maru / batsu stamp */
+  .stamp{position:absolute;inset:8%;z-index:2;display:none;place-items:center;pointer-events:none}
+  .stamp svg{width:100%;height:100%}
+  .stamp.show{display:grid;animation:slam .32s cubic-bezier(.2,1.5,.4,1)}
+  @keyframes slam{from{opacity:0;transform:scale(1.9) rotate(-11deg)}to{opacity:1;transform:none}}
+  .reading{
+    text-align:center;font-size:17px;font-weight:800;min-height:26px;letter-spacing:.02em
+  }
+  .reading .ok{color:#78e8bd}
+  .reading .no{color:#ff9d92}
+
+  /* ── answers ── */
+  .answers{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  .ans{
+    position:relative;min-height:74px;border-radius:var(--r);background:var(--washi);color:var(--sumi);
+    font-weight:800;font-size:26px;letter-spacing:.01em;
+    box-shadow:0 5px 0 #c3c7d4;transition:transform .08s,box-shadow .08s;
+    display:grid;place-items:center;padding:8px
+  }
+  .ans.jp{font-family:var(--kana);font-size:44px;font-weight:400}
+  .ans:active{transform:translateY(4px);box-shadow:0 1px 0 #c3c7d4}
+  .ans .key{position:absolute;top:6px;left:9px;font-size:11px;font-weight:700;color:#9aa1b4}
+  .ans.right{background:var(--matcha);color:#fff;box-shadow:0 5px 0 #075c42}
+  .ans.wrong{background:var(--shu);color:#fff;box-shadow:0 5px 0 #99271d}
+  .ans.right::after,.ans.wrong::after{
+    position:absolute;right:9px;top:6px;font-size:15px;font-weight:800
+  }
+  .ans.right::after{content:"○"}
+  .ans.wrong::after{content:"✕"}
+  .ans[disabled]{cursor:default}
+  .ans.dim{opacity:.42}
+
+  /* ── panels ── */
+  .sheet{
+    position:fixed;inset:0;z-index:20;background:rgba(9,16,30,.72);backdrop-filter:blur(6px);
+    display:none;align-items:flex-end;justify-content:center
+  }
+  .sheet.show{display:flex;animation:fade .18s ease}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .panel{
+    width:100%;max-width:520px;max-height:88vh;overflow:auto;background:#1d3357;
+    border-radius:24px 24px 0 0;padding:20px 18px calc(24px + env(safe-area-inset-bottom));
+    border-top:3px solid rgba(255,255,255,.16);animation:up .24s cubic-bezier(.2,1,.4,1)
+  }
+  @keyframes up{from{transform:translateY(40px)}}
+  h2{margin:0 0 4px;font-size:21px;letter-spacing:-.01em}
+  .panel h3{margin:20px 0 8px;font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:#a8b8d4}
+  .row{display:flex;flex-wrap:wrap;gap:8px}
+  .opt{
+    padding:11px 14px;border-radius:13px;background:rgba(255,255,255,.09);
+    border:1px solid rgba(255,255,255,.14);font-weight:700;font-size:15px;display:flex;gap:7px;align-items:center
+  }
+  .opt.on{background:var(--washi);color:var(--sumi);border-color:var(--washi)}
+  .opt.on::before{content:"✓";font-weight:800}
+  .opt.off::before{content:"○";color:#8fa0bd}
+  .toggle{justify-content:space-between;width:100%}
+  .note{color:#a8b8d4;font-size:13px;line-height:1.5;margin:8px 0 0}
+  .cta{
+    width:100%;margin-top:22px;padding:16px;border-radius:16px;background:var(--kohaku);color:#2a1d00;
+    font-weight:800;font-size:17px;box-shadow:0 5px 0 #b8830f
+  }
+  .cta:active{transform:translateY(4px);box-shadow:0 1px 0 #b8830f}
+  .cta.ghost{background:rgba(255,255,255,.1);color:var(--washi);box-shadow:none;margin-top:10px;border:1px solid rgba(255,255,255,.16)}
+  .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-top:6px}
+  .stat{background:rgba(255,255,255,.08);border-radius:14px;padding:12px 10px;text-align:center}
+  .stat b{display:block;font-size:24px;line-height:1.2}
+  .stat span{font-size:12px;color:#a8b8d4}
+  .heat{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .hk{
+    width:38px;height:38px;border-radius:10px;display:grid;place-items:center;
+    font-family:var(--kana);font-size:20px;background:rgba(255,255,255,.08);color:#dbe3f2;position:relative
+  }
+  .hk small{position:absolute;bottom:1px;right:3px;font-family:var(--ui);font-size:8px;opacity:.75}
+  .hk.l1{background:#5a2c27;color:#ffc9c2}
+  .hk.l2{background:#6b5320;color:#ffe6a8}
+  .hk.l3{background:#12603f;color:#b7f2d8}
+  .empty{color:#a8b8d4;font-size:14px}
+
+  /* ── round summary ── */
+  .big{text-align:center;font-size:64px;line-height:1;margin:6px 0 2px}
+  .center{text-align:center}
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important;transition:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="bar">
+    <button class="icon-btn" id="btnSettings" aria-label="Settings">⚙</button>
+    <div class="chip streak" id="streakChip" title="Streak">🔥 <span id="streak">0</span></div>
+    <div class="spacer"></div>
+    <div class="chip level" id="levelChip">⛩ <span id="levelLabel">Level 1</span></div>
+    <button class="icon-btn" id="btnStats" aria-label="Progress">📊</button>
+  </header>
+
+  <div>
+    <div class="track"><div class="fill" id="fill"></div></div>
+    <div class="meta">
+      <span id="ladderLabel">—</span>
+      <span id="scoreLabel">○ 0/12</span>
+    </div>
+  </div>
+
+  <main class="stage">
+    <p class="ask" id="ask">Which sound is this?</p>
+    <div class="cell">
+      <div class="glyph" id="glyph">あ</div>
+      <div class="stamp" id="stamp"></div>
+    </div>
+    <p class="reading" id="reading">&nbsp;</p>
+  </main>
+
+  <div class="answers" id="answers"></div>
+</div>
+
+<!-- settings -->
+<div class="sheet" id="sheetSettings">
+  <div class="panel" role="dialog" aria-label="Settings">
+    <h2>Settings</h2>
+    <p class="note">Changes start a fresh round.</p>
+
+    <h3>Character sets</h3>
+    <div class="row" id="setRow"></div>
+
+    <h3>Include</h3>
+    <div class="row" id="extraRow"></div>
+
+    <h3>Unlock order</h3>
+    <div class="row" id="orderRow"></div>
+    <p class="note" id="orderNote">—</p>
+
+    <h3>Difficulty</h3>
+    <div class="row" id="ladderRow"></div>
+    <p class="note" id="ladderNote">—</p>
+    <button class="opt" id="resetLadder" style="margin-top:10px">↺ Restart this ladder at 2 characters</button>
+
+    <h3>Question type</h3>
+    <div class="row" id="dirRow"></div>
+
+    <h3>Sound</h3>
+    <div class="row" id="soundRow"></div>
+    <div class="row" id="voiceRow" style="margin-top:8px"></div>
+    <p class="note">Reading the character you tap teaches the sound either way — get it wrong and you hear your pick, then the right one. Voice uses your device's built-in Japanese speech. If you hear nothing, install a Japanese voice in your system settings — the beeps will still work.</p>
+
+    <button class="cta" id="closeSettings">Start a round</button>
+  </div>
+</div>
+
+<!-- stats -->
+<div class="sheet" id="sheetStats">
+  <div class="panel" role="dialog" aria-label="Progress">
+    <h2>Progress</h2>
+    <div class="stats">
+      <div class="stat"><b id="sLevel">2/46</b><span>unlocked</span></div>
+      <div class="stat"><b id="sAnswered">0</b><span>answered</span></div>
+      <div class="stat"><b id="sAccuracy">—</b><span>accuracy</span></div>
+      <div class="stat"><b id="sBest">0</b><span>best streak</span></div>
+    </div>
+    <h3>Every character you've seen</h3>
+    <p class="note" style="margin:0 0 6px">🟩 solid · 🟨 shaky · 🟥 needs work — the number is how many times you've seen it.</p>
+    <div class="heat" id="heat"></div>
+    <button class="cta ghost" id="closeStats">Back to practice</button>
+    <button class="cta ghost" id="resetAll">Erase all progress</button>
+  </div>
+</div>
+
+<!-- character unlocked -->
+<div class="sheet" id="sheetUnlock">
+  <div class="panel center" role="dialog" aria-label="New character unlocked">
+    <div class="big" style="color:var(--kohaku)">⛩</div>
+    <h2 id="unlockTitle">New character</h2>
+    <p class="note" id="unlockLine">—</p>
+    <div class="heat" id="unlockChars" style="justify-content:center"></div>
+    <button class="cta" id="unlockBtn">Keep going</button>
+  </div>
+</div>
+
+<!-- round summary -->
+<div class="sheet" id="sheetRound">
+  <div class="panel center" role="dialog" aria-label="Round complete">
+    <div class="big" id="roundFace">○</div>
+    <h2 id="roundTitle">Round complete</h2>
+    <p class="note" id="roundLine">—</p>
+    <div class="heat" id="roundMiss" style="justify-content:center"></div>
+    <button class="cta" id="againBtn">Next round</button>
+    <button class="cta ghost" id="roundSettings">Change what I'm practicing</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ───────────────────────── data ───────────────────────── */
+// [hiragana, katakana, romaji, group]
+const BASE = [
+["あ","ア","a",0],["い","イ","i",0],["う","ウ","u",0],["え","エ","e",0],["お","オ","o",0],
+["か","カ","ka",1],["き","キ","ki",1],["く","ク","ku",1],["け","ケ","ke",1],["こ","コ","ko",1],
+["さ","サ","sa",2],["し","シ","shi",2],["す","ス","su",2],["せ","セ","se",2],["そ","ソ","so",2],
+["た","タ","ta",3],["ち","チ","chi",3],["つ","ツ","tsu",3],["て","テ","te",3],["と","ト","to",3],
+["な","ナ","na",4],["に","ニ","ni",4],["ぬ","ヌ","nu",4],["ね","ネ","ne",4],["の","ノ","no",4],
+["は","ハ","ha",5],["ひ","ヒ","hi",5],["ふ","フ","fu",5],["へ","ヘ","he",5],["ほ","ホ","ho",5],
+["ま","マ","ma",6],["み","ミ","mi",6],["む","ム","mu",6],["め","メ","me",6],["も","モ","mo",6],
+["や","ヤ","ya",7],["ゆ","ユ","yu",7],["よ","ヨ","yo",7],
+["ら","ラ","ra",8],["り","リ","ri",8],["る","ル","ru",8],["れ","レ","re",8],["ろ","ロ","ro",8],
+["わ","ワ","wa",9],["を","ヲ","wo",9],["ん","ン","n",9]
+];
+const DAKUTEN = [
+["が","ガ","ga",10],["ぎ","ギ","gi",10],["ぐ","グ","gu",10],["げ","ゲ","ge",10],["ご","ゴ","go",10],
+["ざ","ザ","za",11],["じ","ジ","ji",11],["ず","ズ","zu",11],["ぜ","ゼ","ze",11],["ぞ","ゾ","zo",11],
+["だ","ダ","da",12],["ぢ","ヂ","ji",12],["づ","ヅ","zu",12],["で","デ","de",12],["ど","ド","do",12],
+["ば","バ","ba",13],["び","ビ","bi",13],["ぶ","ブ","bu",13],["べ","ベ","be",13],["ぼ","ボ","bo",13],
+["ぱ","パ","pa",14],["ぴ","ピ","pi",14],["ぷ","プ","pu",14],["ぺ","ペ","pe",14],["ぽ","ポ","po",14]
+];
+const YOON = [
+["きゃ","キャ","kya",15],["きゅ","キュ","kyu",15],["きょ","キョ","kyo",15],
+["しゃ","シャ","sha",16],["しゅ","シュ","shu",16],["しょ","ショ","sho",16],
+["ちゃ","チャ","cha",17],["ちゅ","チュ","chu",17],["ちょ","チョ","cho",17],
+["にゃ","ニャ","nya",18],["にゅ","ニュ","nyu",18],["にょ","ニョ","nyo",18],
+["ひゃ","ヒャ","hya",19],["ひゅ","ヒュ","hyu",19],["ひょ","ヒョ","hyo",19],
+["みゃ","ミャ","mya",20],["みゅ","ミュ","myu",20],["みょ","ミョ","myo",20],
+["りゃ","リャ","rya",21],["りゅ","リュ","ryu",21],["りょ","リョ","ryo",21],
+["ぎゃ","ギャ","gya",22],["ぎゅ","ギュ","gyu",22],["ぎょ","ギョ","gyo",22],
+["じゃ","ジャ","ja",23],["じゅ","ジュ","ju",23],["じょ","ジョ","jo",23],
+["びゃ","ビャ","bya",24],["びゅ","ビュ","byu",24],["びょ","ビョ","byo",24],
+["ぴゃ","ピャ","pya",25],["ぴゅ","ピュ","pyu",25],["ぴょ","ピョ","pyo",25]
+];
+// characters people genuinely mix up — better wrong answers than random ones
+const LOOKALIKE = [
+["あ","お","め","ぬ"],["ぬ","め","ね","わ"],["れ","わ","ね","ら"],["る","ろ","そ","ら"],
+["さ","き","ち","ら"],["は","ほ","ま","け"],["つ","し","う","へ"],["こ","い","に","り"],
+["シ","ツ","ソ","ン"],["ソ","ン","ノ","フ"],["ク","タ","ワ","ケ"],["コ","ユ","ヨ","エ"],
+["ウ","ワ","ク","フ"],["ス","ヌ","マ","ミ"],["チ","テ","ナ","キ"],["レ","し","ル","ト"],
+["カ","ガ","キ","ヤ"],["マ","ム","ア","メ"]
+];
+
+/* Frequency order — from a count of every kana in the readings of the 5,000
+   sentences in Tono, Yamazaki & Maekawa, "A Frequency Dictionary of Japanese"
+   (2013), via github.com/fasiha. Ranked by hiragana; katakana inherits its
+   partner's rank, which is an approximation — katakana in real text skews
+   toward loanword sounds (ン, ス, ト, ル) rather than matching hiragana. */
+const FREQ_ORDER = (
+  "い ん か う た の は し に を く て こ な る と ま き す れ つ さ お あ ら け も せ り わ "+
+  "ち え そ よ み め ひ ほ や ね ふ ろ む ゆ へ ぬ "+
+  "が で だ じ ど ご ば ぶ げ べ び ぎ ず ざ ぜ ぼ ぞ ぐ ぱ づ ぽ ぷ ぴ ぺ ぢ "+
+  "じょ しょ しゅ しゃ きょ りょ ちょ じゅ きゅ ちゅ ぎょ にゅ ちゃ きゃ ひょ じゃ びょ りゅ "+
+  "ひゃ ぴょ みょ ぎゅ りゃ ぎゃ みゃ びゃ にょ みゅ ぴゅ びゅ ひゅ ぴゃ にゃ"
+).split(" ");
+const FREQ_RANK = new Map(FREQ_ORDER.map((ch,i)=>[ch,i]));
+
+const ROUND_LEN = 12;
+
+/* ───────────────────── storage ───────────────────── */
+const KEY = "maru-batsu.v1";
+const DEFAULTS = {
+  sets:{hira:true, kata:false},
+  extras:{dakuten:false, yoon:false},
+  dir:"kana2romaji",            // or romaji2kana or mixed
+  voice:true, beeps:true,
+  voiceMode:"kana",             // "kana" = read the tapped character, "react" = はい / ざんねん
+  ladder:true,                  // unlock characters one at a time
+  order:"gojuon",               // "gojuon" = alphabet order, "freq" = most common first
+  levels:{},                    // how many characters are unlocked, per character set
+  stats:{}, answered:0, correct:0, best:0
+};
+const START_CHARS = 2;          // the ladder opens with this many
+const TO_UNLOCK = 10;           // correct answers needed on each of them
+let S = load();
+function load(){
+  try{
+    const raw = JSON.parse(localStorage.getItem(KEY)||"{}");
+    return {...structuredClone(DEFAULTS), ...raw,
+      sets:{...DEFAULTS.sets,...(raw.sets||{})},
+      extras:{...DEFAULTS.extras,...(raw.extras||{})},
+      levels:raw.levels||{}, stats:raw.stats||{}};
+  }catch(e){ return structuredClone(DEFAULTS); }
+}
+let saveTimer=null;
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} },120);
+}
+
+/* ───────────────────── sound ───────────────────── */
+let ctx=null;
+function audio(){
+  if(!ctx){ const A=window.AudioContext||window.webkitAudioContext; if(A) ctx=new A(); }
+  if(ctx && ctx.state==="suspended") ctx.resume();
+  return ctx;
+}
+function tone(freqs, dur=.12, type="triangle", gap=.09){
+  if(!S.beeps) return;
+  const c=audio(); if(!c) return;
+  freqs.forEach((f,i)=>{
+    const o=c.createOscillator(), g=c.createGain(), t=c.currentTime+i*gap;
+    o.type=type; o.frequency.setValueAtTime(f,t);
+    g.gain.setValueAtTime(.0001,t);
+    g.gain.exponentialRampToValueAtTime(.22,t+.012);
+    g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t+dur+.02);
+  });
+}
+const YES=["はい！","せいかい！","いいね！","そう！"];
+const NO =["ざんねん…","ちがうよ〜","うーん…","おしい！"];
+let jaVoice=null;
+function pickVoice(){
+  if(!("speechSynthesis" in window)) return;
+  const v=speechSynthesis.getVoices()||[];
+  jaVoice=v.find(x=>/^ja(-|_)?/i.test(x.lang))||null;
+}
+if("speechSynthesis" in window){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; }
+function say(text, rate=1, queue=false){
+  if(!S.voice || !("speechSynthesis" in window)) return;
+  try{
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang="ja-JP"; u.rate=rate; u.pitch=1.05;
+    if(jaVoice) u.voice=jaVoice;
+    if(!queue) speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+// slowed down, because a single kana at normal rate is over before you hear it.
+// `pause` prefixes a comma so a queued reading doesn't run into the one before it.
+function sayKana(ch, queue=false, pause=false){ say((pause?"\u3001":"")+ch, .8, queue); }
+function buzz(ms){ if(navigator.vibrate) try{navigator.vibrate(ms);}catch(e){} }
+
+/* ───────────────────── deck ───────────────────── */
+function deck(){
+  let rows=[...BASE];
+  if(S.extras.dakuten) rows=rows.concat(DAKUTEN);
+  if(S.extras.yoon) rows=rows.concat(YOON);
+  if(S.order==="freq"){
+    const r=h=>FREQ_RANK.has(h)?FREQ_RANK.get(h):999;
+    rows=rows.slice().sort((a,b)=>r(a[0])-r(b[0]));
+  }
+  const out=[];
+  rows.forEach(([h,k,r,g])=>{
+    if(S.sets.hira) out.push({ch:h, romaji:r, group:g, script:"hira"});
+    if(S.sets.kata) out.push({ch:k, romaji:r, group:g, script:"kata"});
+  });
+  return out;
+}
+/* ── the ladder ──
+   Each character set keeps its own level. A level means "this many characters
+   are in play". You climb by answering every unlocked character correctly
+   TO_UNLOCK times; then the next character in gojūon order joins. */
+function courseKey(){
+  return (S.sets.hira?"h":"")+(S.sets.kata?"k":"")
+       + (S.extras.dakuten?"+d":"")+(S.extras.yoon?"+y":"")
+       + (S.order==="freq"?"#f":"");   // each order keeps its own ladder
+}
+function level(){
+  const k=courseKey(), max=deck().length;
+  const n=S.levels[k];
+  return Math.min(max, Math.max(Math.min(START_CHARS,max), n||START_CHARS));
+}
+function setLevel(n){ S.levels[courseKey()]=n; save(); }
+function activePool(){ const d=deck(); return S.ladder ? d.slice(0, level()) : d; }
+// reps toward unlocking, counted separately from lifetime accuracy so that
+// restarting the ladder actually starts over
+function okCount(ch){ const r=S.stats[ch]; return r&&r.lok?r.lok:0; }
+// how far the current level is from unlocking the next character
+function ladderProgress(){
+  const pool=activePool();
+  const have=pool.reduce((a,c)=>a+Math.min(okCount(c.ch),TO_UNLOCK),0);
+  return {have, need:pool.length*TO_UNLOCK, pool};
+}
+// returns the characters unlocked by this answer, if any
+function checkUnlock(){
+  const d=deck();
+  if(level()>=d.length) return [];
+  if(!activePool().every(c=>okCount(c.ch)>=TO_UNLOCK)) return [];
+  setLevel(level()+1);
+  // every character starts the new level owing its reps again, so the newcomer
+  // is practiced alongside the old ones instead of hogging every question
+  activePool().forEach(c=>{ const r=S.stats[c.ch]; if(r) r.lok=0; });
+  save();
+  return [d[level()-1]];
+}
+
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function rec(ch){ const r=S.stats[ch]||(S.stats[ch]={seen:0,ok:0,lok:0}); if(r.lok==null) r.lok=0; return r; }
+// weight: unseen and shaky characters come up more often
+function weighted(pool){
+  const w=pool.map(c=>{
+    const r=S.stats[c.ch];
+    // characters still short of the unlock count get pushed to the front;
+    // ones already past it drop back to occasional review
+    const short = S.ladder ? Math.max(0, TO_UNLOCK-okCount(c.ch))/TO_UNLOCK : 0;
+    const review = (S.ladder && !short) ? .3 : 1;
+    if(!r||!r.seen) return 6 + short*4;
+    const acc=r.ok/r.seen;
+    return (1 + (1-acc)*6 + (r.seen<3?2:0)) * review + short*4;
+  });
+  let t=w.reduce((a,b)=>a+b,0), n=Math.random()*t;
+  for(let i=0;i<pool.length;i++){ n-=w[i]; if(n<=0) return pool[i]; }
+  return pool[pool.length-1];
+}
+function distractors(target, pool, n, wider){
+  // pool is reassigned below in sound → character mode
+  const key = q.mode==="kana2romaji" ? "romaji" : "ch";
+  const out=[], used=new Set([target[key]]);
+  // in sound → character mode, no option may share the prompt's sound or come
+  // from the other script — either would make two answers correct
+  if(key==="ch"){
+    pool = pool.filter(c=>c.romaji!==target.romaji && c.script===target.script);
+  }
+  const add=c=>{ if(c && !used.has(c[key])){ used.add(c[key]); out.push(c);} };
+  if(key==="ch"){
+    const look=LOOKALIKE.find(g=>g.includes(target.ch));
+    if(look) shuffle(look.filter(x=>x!==target.ch)).forEach(ch=>{ if(out.length<n) add(pool.find(c=>c.ch===ch)); });
+  }
+  shuffle(pool.filter(c=>c.group===target.group)).forEach(c=>{ if(out.length<n) add(c); });
+  shuffle([...pool]).forEach(c=>{ if(out.length<n) add(c); });
+  // early levels don't hold four characters yet — fill the remaining buttons
+  // from the rest of the alphabet so an answer is never a coin flip
+  if(out.length<n && wider){
+    let rest = wider.filter(c=>!pool.includes(c));
+    if(key==="ch") rest = rest.filter(c=>c.romaji!==target.romaji && c.script===target.script);
+    const look=LOOKALIKE.find(g=>g.includes(target.ch));
+    if(key==="ch" && look) shuffle(look.filter(x=>x!==target.ch)).forEach(ch=>{ if(out.length<n) add(rest.find(c=>c.ch===ch)); });
+    shuffle(rest).forEach(c=>{ if(out.length<n) add(c); });
+  }
+  return out.slice(0,n);
+}
+
+/* ───────────────────── game ───────────────────── */
+const $=id=>document.getElementById(id);
+const els={
+  glyph:$("glyph"), stamp:$("stamp"), ask:$("ask"), answers:$("answers"),
+  reading:$("reading"), fill:$("fill"), streak:$("streak")
+};
+let q={mode:"kana2romaji", answer:null, locked:false};
+let round={i:0, ok:0, missed:[]};
+let streak=0;
+
+const MARU=`<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="36" fill="none" stroke="#0e8a63" stroke-width="9" stroke-linecap="round" stroke-dasharray="215 240" transform="rotate(-24 50 50)"/></svg>`;
+const BATSU=`<svg viewBox="0 0 100 100" aria-hidden="true"><g stroke="#e0473a" stroke-width="9" stroke-linecap="round"><line x1="22" y1="22" x2="78" y2="78"/><line x1="78" y1="22" x2="22" y2="78"/></g></svg>`;
+
+function next(){
+  const all=deck();
+  const pool=activePool();
+  if(all.length<4 || !pool.length){ openSheet("sheetSettings"); return; }
+  q.locked=false;
+  q.mode = S.dir==="mixed" ? (Math.random()<.5?"kana2romaji":"romaji2kana") : S.dir;
+  const target=weighted(pool);
+  q.answer=target;
+  els.stamp.className="stamp"; els.stamp.innerHTML="";
+  els.reading.innerHTML="&nbsp;";
+
+  const kanaPrompt = q.mode==="kana2romaji";
+  els.ask.textContent = kanaPrompt ? "Which sound is this?" : "Which character makes this sound?";
+  els.glyph.className = "glyph" + (kanaPrompt ? "" : " romaji");
+  els.glyph.textContent = kanaPrompt ? target.ch : target.romaji;
+  // retrigger entry animation
+  els.glyph.style.animation="none"; void els.glyph.offsetWidth; els.glyph.style.animation="";
+
+  const opts=shuffle([target, ...distractors(target, pool, 3, all)]);
+  els.answers.innerHTML="";
+  opts.forEach((o,i)=>{
+    const b=document.createElement("button");
+    b.className="ans"+(kanaPrompt?"":" jp");
+    b.innerHTML=`<span class="key">${i+1}</span>${kanaPrompt?o.romaji:o.ch}`;
+    b.setAttribute("aria-label", kanaPrompt?o.romaji:("character "+o.ch));
+    b.onclick=()=>answer(o,b);
+    els.answers.appendChild(b);
+  });
+  paint();
+}
+
+function answer(choice, btn){
+  if(q.locked) return;
+  q.locked=true;
+  const right = q.mode==="kana2romaji" ? choice.romaji===q.answer.romaji : choice.ch===q.answer.ch;
+  const r=rec(q.answer.ch); r.seen++; S.answered++;
+  [...els.answers.children].forEach(b=>{ b.disabled=true; if(b!==btn) b.classList.add("dim"); });
+
+  els.stamp.innerHTML = right?MARU:BATSU;
+  els.stamp.classList.add("show");
+
+  if(right){
+    r.ok++; r.lok++; S.correct++; round.ok++; streak++;
+    S.best=Math.max(S.best,streak);
+    btn.classList.remove("dim"); btn.classList.add("right");
+    els.reading.innerHTML=`<span class="ok">○ ${q.answer.ch} = ${q.answer.romaji}</span>`;
+    tone([660,880,1180],.13);
+    buzz(18);
+    if(S.voiceMode==="kana") sayKana(choice.ch); else say(pick(YES));
+  }else{
+    streak=0; round.missed.push(q.answer);
+    btn.classList.remove("dim"); btn.classList.add("wrong");
+    // reveal the right one
+    [...els.answers.children].forEach(b=>{
+      const t=b.textContent.replace(/^\d/,"");
+      if(t===(q.mode==="kana2romaji"?q.answer.romaji:q.answer.ch)){ b.classList.remove("dim"); b.classList.add("right"); }
+    });
+    els.reading.innerHTML=
+      `<span class="no">✕ ${choice.ch} is “${choice.romaji}” · ${q.answer.ch} is “${q.answer.romaji}”</span>`;
+    tone([300,196],.22,"sawtooth",.14);
+    buzz([28,60,28]);
+    if(S.voiceMode==="kana"){
+      sayKana(choice.ch);                 // what you picked...
+      sayKana(q.answer.ch, true, true);   // ...then what it should have been
+    }else say(pick(NO));
+  }
+  const gained = right && S.ladder ? checkUnlock() : [];
+  save(); paint();
+  round.i++;
+  setTimeout(()=>{
+    if(gained.length) return showUnlock(gained);
+    round.i>=ROUND_LEN ? endRound() : next();
+  }, right?900:1700);
+}
+
+function paint(){
+  els.streak.textContent=streak;
+  $("scoreLabel").textContent=`○ ${round.ok}/${round.i}`;
+  const all=deck().length;
+  if(S.ladder){
+    const {have,need,pool}=ladderProgress();
+    const maxed = pool.length>=all;
+    $("levelChip").className="chip level"+(maxed?" max":"");
+    $("levelLabel").textContent = maxed ? `All ${all}` : `Level ${pool.length-START_CHARS+1}`;
+    $("ladderLabel").textContent = maxed
+      ? `Every character unlocked · ${have}/${need} mastered`
+      : `${have}/${need} to unlock character ${pool.length+1}`;
+    els.fill.style.width=(need?have/need*100:0)+"%";
+  }else{
+    $("levelChip").className="chip level";
+    $("levelLabel").textContent=`All ${all}`;
+    $("ladderLabel").textContent="Practicing every character";
+    els.fill.style.width=(round.i/ROUND_LEN*100)+"%";
+  }
+}
+
+function showUnlock(gained){
+  const box=$("unlockChars"); box.innerHTML="";
+  gained.forEach(g=>{
+    const d=document.createElement("div");
+    d.className="hk l3"; d.style.cssText="width:64px;height:64px;font-size:34px";
+    d.innerHTML=`${g.ch}<small>${g.romaji}</small>`;
+    box.appendChild(d);
+  });
+  const n=gained.length;
+  $("unlockTitle").textContent = n>1 ? `${n} new characters` : "New character";
+  $("unlockLine").textContent = n>1
+    ? `You've mastered the last set. These join the practice.`
+    : `${gained[0].ch} is “${gained[0].romaji}”. It joins the practice now.`;
+  tone([523,659,784,1047],.16,"triangle",.11);
+  say(gained.map(g=>g.ch).join("、"), .85);
+  openSheet("sheetUnlock");
+}
+
+function endRound(){
+  const pct=Math.round(round.ok/ROUND_LEN*100);
+  $("roundFace").textContent = pct>=75?"○":"✕";
+  $("roundFace").style.color = pct>=75?"#0e8a63":"#e0473a";
+  $("roundTitle").textContent = pct===100?"Perfect round":pct>=75?"Good round":"Keep going";
+  $("roundLine").textContent = `${round.ok} of ${ROUND_LEN} correct · ${pct}%`;
+  const miss=$("roundMiss"); miss.innerHTML="";
+  if(round.missed.length){
+    const seen=new Set();
+    round.missed.forEach(m=>{
+      if(seen.has(m.ch)) return; seen.add(m.ch);
+      const d=document.createElement("div");
+      d.className="hk l1"; d.innerHTML=`${m.ch}<small>${m.romaji}</small>`;
+      miss.appendChild(d);
+    });
+  }
+  openSheet("sheetRound");
+}
+function newRound(){ round={i:0,ok:0,missed:[]}; next(); }
+
+/* ───────────────────── sheets & settings UI ───────────────────── */
+function openSheet(id){ document.querySelectorAll(".sheet").forEach(s=>s.classList.remove("show")); $(id).classList.add("show"); }
+function closeSheets(){ document.querySelectorAll(".sheet").forEach(s=>s.classList.remove("show")); }
+
+function chip(label, on, fn){
+  const b=document.createElement("button");
+  b.className="opt "+(on?"on":"off"); b.textContent=label;
+  b.setAttribute("aria-pressed", on?"true":"false");
+  b.onclick=()=>{ fn(); save(); renderSettings(); };
+  return b;
+}
+function renderSettings(){
+  const sr=$("setRow"); sr.innerHTML="";
+  sr.append(
+    chip("Hiragana あ", S.sets.hira, ()=>{ S.sets.hira=!S.sets.hira; if(!S.sets.hira&&!S.sets.kata) S.sets.kata=true; }),
+    chip("Katakana ア", S.sets.kata, ()=>{ S.sets.kata=!S.sets.kata; if(!S.sets.hira&&!S.sets.kata) S.sets.hira=true; })
+  );
+  const er=$("extraRow"); er.innerHTML="";
+  er.append(
+    chip("Dakuten が ぱ", S.extras.dakuten, ()=>S.extras.dakuten=!S.extras.dakuten),
+    chip("Combos きゃ", S.extras.yoon, ()=>S.extras.yoon=!S.extras.yoon)
+  );
+  const or=$("orderRow"); or.innerHTML="";
+  or.append(
+    chip("Gojūon あいうえお", S.order==="gojuon", ()=>S.order="gojuon"),
+    chip("Most common first", S.order==="freq", ()=>S.order="freq")
+  );
+  const first=deck().slice(0,6).map(c=>c.ch).join(" ");
+  $("orderNote").textContent = (S.order==="freq"
+    ? "Characters arrive in order of how often they appear in real Japanese, so you can start decoding text sooner. "
+    : "Characters arrive in dictionary order, matching every kana chart, index, and verb conjugation table. ")
+    + "Starts: " + first + " …  Each order keeps its own separate ladder.";
+
+  const lr=$("ladderRow"); lr.innerHTML="";
+  lr.append(
+    chip("Ladder: add one at a time", S.ladder, ()=>S.ladder=true),
+    chip("Practice everything", !S.ladder, ()=>S.ladder=false)
+  );
+  const all=deck().length, n=level(), {have,need}=ladderProgress();
+  $("ladderNote").textContent = S.ladder
+    ? `Start with ${START_CHARS} characters. Answer each one correctly ${TO_UNLOCK} times and the next character joins. This set: ${n} of ${all} unlocked, ${have}/${need} toward the next.`
+    : `All ${all} characters are in play. Your ladder position is kept and waiting.`;
+  $("resetLadder").style.display = S.ladder ? "" : "none";
+
+  const dr=$("dirRow"); dr.innerHTML="";
+  [["kana2romaji","Character → sound"],["romaji2kana","Sound → character"],["mixed","Mix both"]]
+    .forEach(([v,l])=>dr.append(chip(l, S.dir===v, ()=>S.dir=v)));
+  const so=$("soundRow"); so.innerHTML="";
+  so.append(
+    chip("Japanese voice", S.voice, ()=>{ S.voice=!S.voice; if(S.voice) sayKana("\u3042"); }),
+    chip("Beeps", S.beeps, ()=>{ S.beeps=!S.beeps; if(S.beeps) tone([660,880]); })
+  );
+  const vm=$("voiceRow"); vm.innerHTML="";
+  vm.append(
+    chip("Read the character I tap", S.voiceMode==="kana", ()=>{ S.voiceMode="kana"; sayKana("\u3042"); }),
+    chip("はい / ざんねん", S.voiceMode==="react", ()=>{ S.voiceMode="react"; say("\u306f\u3044\uff01"); })
+  );
+}
+function renderStats(){
+  const all=deck().length;
+  $("sLevel").textContent = S.ladder ? `${level()}/${all}` : `${all}/${all}`;
+  $("sAnswered").textContent=S.answered;
+  $("sAccuracy").textContent=S.answered?Math.round(S.correct/S.answered*100)+"%":"—";
+  $("sBest").textContent=S.best;
+  const h=$("heat"); h.innerHTML="";
+  const entries=Object.entries(S.stats).filter(([,r])=>r.seen>0)
+    .sort((a,b)=>(a[1].ok/a[1].seen)-(b[1].ok/b[1].seen));
+  if(!entries.length){ h.innerHTML='<p class="empty">Nothing yet. Play a round and your characters show up here.</p>'; return; }
+  entries.forEach(([ch,r])=>{
+    const acc=r.ok/r.seen;
+    const lvl = acc>=.9&&r.seen>=3 ? "l3" : acc>=.6 ? "l2" : "l1";
+    const d=document.createElement("div");
+    d.className="hk "+lvl;
+    d.title=`${ch} — ${r.ok}/${r.seen}`;
+    d.innerHTML=`${ch}<small>${r.seen}</small>`;
+    h.appendChild(d);
+  });
+}
+
+/* ───────────────────── wiring ───────────────────── */
+$("btnSettings").onclick=()=>{ renderSettings(); openSheet("sheetSettings"); };
+$("btnStats").onclick=()=>{ renderStats(); openSheet("sheetStats"); };
+$("closeSettings").onclick=()=>{ audio(); closeSheets(); newRound(); };
+$("closeStats").onclick=closeSheets;
+$("unlockBtn").onclick=()=>{
+  closeSheets();
+  round.i>=ROUND_LEN ? endRound() : next();
+};
+$("againBtn").onclick=()=>{ closeSheets(); newRound(); };
+$("roundSettings").onclick=()=>{ renderSettings(); openSheet("sheetSettings"); };
+$("resetLadder").onclick=()=>{
+  if(!confirm("Restart this character set at "+START_CHARS+" characters? Your accuracy history stays.")) return;
+  deck().forEach(c=>{ if(S.stats[c.ch]) S.stats[c.ch].lok=0; });
+  setLevel(START_CHARS); save(); renderSettings(); paint();
+};
+$("resetAll").onclick=()=>{
+  if(!confirm("Erase every character record, streak, and setting on this device?")) return;
+  try{ localStorage.removeItem(KEY); }catch(e){}
+  S=structuredClone(DEFAULTS); streak=0; renderStats(); closeSheets(); newRound();
+};
+document.querySelectorAll(".sheet").forEach(s=>{
+  s.addEventListener("click", e=>{
+    if(e.target!==s) return;
+    closeSheets();
+    if(s.id==="sheetRound") newRound();
+    if(s.id==="sheetUnlock") $("unlockBtn").onclick();
+  });
+});
+document.addEventListener("keydown", e=>{
+  if(/^[1-4]$/.test(e.key)){
+    const b=els.answers.children[+e.key-1];
+    if(b && !b.disabled) b.click();
+  }
+  if(e.key==="Escape") closeSheets();
+});
+// unlock audio on first touch (iOS)
+["pointerdown","keydown"].forEach(ev=>window.addEventListener(ev, ()=>audio(), {once:true}));
+
+newRound();
+</script>
+</body>
+</html>
