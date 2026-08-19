@@ -45,6 +45,15 @@ Two orders, switchable in Settings, each with its own separate ladder:
 - **Most common first** — い ん か う た の は し に を く て… Frequency-ranked, so
   the characters you'll actually meet in text arrive first and you can start
   decoding sooner.
+- **Course order (phrases)** — す し と お ちゃ く だ さ… A vocabulary-first path of
+  71 characters, ordered so that the words come first and the characters arrive
+  as the words need them. It mixes hiragana, katakana, dakuten and combos from
+  the start (ちゃ is the fifth character you learn, ラーメン arrives around 35),
+  so the character-set and extras toggles don't apply while it's selected. The
+  sequence is derived from the vocabulary progression of the first ten beginner
+  sections of a widely used Japanese course; every sentence shown in the app is
+  our own, written from that vocabulary. っ and ー are omitted from the ladder
+  on purpose — they're written marks rather than sounds you have to learn.
 
 The frequency ranking comes from a count of every kana in the readings of the
 5,000 sentences in Tono, Yamazaki & Maekawa's *A Frequency Dictionary of
@@ -56,6 +65,21 @@ partner's rank, but katakana in real text skews toward loanword sounds
 applied *within* each category rather than globally — が is more frequent than
 お, but が is か plus a diacritic, so all 46 base characters come before dakuten
 and combos regardless of count.
+
+### Words you can read
+
+Every unlock screen shows up to five real Japanese words spellable with exactly
+the characters you've earned — tap any of them to hear it read aloud. Three
+characters into the frequency ladder you're already reading いか (squid); by
+five, うた (song) and たかい (tall).
+
+Words using the newest character come first, and multi-kana words are preferred
+over single-character nouns so the list stays interesting. Katakana learners get
+animal, plant, and food names (イカ, サクラ, キツネ) alongside the loanwords,
+because Japanese conventionally writes those in katakana and the loanwords are
+too long to be readable early. No word contains a small っ, so everything shown
+is spelled with exactly the characters on your ladder; the katakana length mark
+ー is treated as free, since it isn't a character you have to learn.
 
 Your level is saved per character set — hiragana alone, katakana alone, and
 each combination with dakuten or combos keep their own ladders, so switching

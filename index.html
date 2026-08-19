@@ -165,6 +165,16 @@
   .hk.l2{background:#6b5320;color:#ffe6a8}
   .hk.l3{background:#12603f;color:#b7f2d8}
   .empty{color:#a8b8d4;font-size:14px}
+  .word{
+    display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+    padding:11px 13px;margin-bottom:7px;border-radius:14px;
+    background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.13)
+  }
+  .word:active{background:rgba(255,255,255,.16)}
+  .word b{font-family:var(--kana);font-size:27px;font-weight:400;color:var(--washi);line-height:1.1}
+  .word .rom{font-size:12.5px;color:#a8b8d4;font-weight:700;letter-spacing:.02em}
+  .word .mean{font-size:15px;font-weight:700}
+  .word .spk{margin-left:auto;font-size:17px;opacity:.75}
 
   /* ── round summary ── */
   .big{text-align:center;font-size:64px;line-height:1;margin:6px 0 2px}
@@ -263,6 +273,8 @@
     <h2 id="unlockTitle">New character</h2>
     <p class="note" id="unlockLine">—</p>
     <div class="heat" id="unlockChars" style="justify-content:center"></div>
+    <h3 id="wordsHead" style="text-align:left">Words you can read now</h3>
+    <div id="wordList"></div>
     <button class="cta" id="unlockBtn">Keep going</button>
   </div>
 </div>
@@ -337,6 +349,155 @@ const FREQ_ORDER = (
   "ひゃ ぴょ みょ ぎゅ りゃ ぎゃ みゃ びゃ にょ みゅ ぴゅ びゅ ひゅ ぴゃ にゃ"
 ).split(" ");
 const FREQ_RANK = new Map(FREQ_ORDER.map((ch,i)=>[ch,i]));
+
+/* Words you can read with the characters you've unlocked. Kept deliberately
+   short and concrete — the point is the click of "I can read that", not
+   vocabulary drilling. No small っ, so every word is spelled with exactly the
+   characters on your ladder; ー in katakana is a length mark, not a character,
+   and is treated as free. */
+const WORDS_HIRA = [
+["か","ka","mosquito"],["き","ki","tree"],["け","ke","hair"],["こ","ko","child"],
+["す","su","vinegar"],["せ","se","back"],["た","ta","rice field"],["ち","chi","blood"],
+["て","te","hand"],["と","to","door"],["な","na","name"],["ね","ne","root"],
+["の","no","field"],["は","ha","tooth"],["ひ","hi","sun"],["ほ","ho","sail"],
+["み","mi","fruit"],["め","me","eye"],["や","ya","arrow"],["ゆ","yu","hot water"],
+["わ","wa","ring"],
+["あい","ai","love"],["いえ","ie","house"],["あお","ao","blue"],["うえ","ue","above"],
+["うお","uo","fish"],["いう","iu","to say"],["あう","au","to meet"],["いか","ika","squid"],
+["うた","uta","song"],["かお","kao","face"],["あか","aka","red"],["あき","aki","autumn"],
+["えき","eki","station"],["かき","kaki","persimmon"],["きく","kiku","to listen"],
+["いく","iku","to go"],["かう","kau","to buy"],["あさ","asa","morning"],["いし","ishi","stone"],
+["うし","ushi","cow"],["はし","hashi","chopsticks"],["しか","shika","deer"],["かに","kani","crab"],
+["にし","nishi","west"],["ひと","hito","person"],["いと","ito","thread"],["した","shita","below"],
+["うち","uchi","home"],["まち","machi","town"],["みち","michi","road"],["くち","kuchi","mouth"],
+["いち","ichi","one"],["なに","nani","what"],["ここ","koko","here"],["そこ","soko","there"],
+["これ","kore","this"],["それ","sore","that"],["あれ","are","that one"],["いま","ima","now"],
+["ねこ","neko","cat"],["いぬ","inu","dog"],["とり","tori","bird"],["うま","uma","horse"],
+["にく","niku","meat"],["こめ","kome","rice"],["すし","sushi","sushi"],["しお","shio","salt"],
+["はな","hana","flower"],["やま","yama","mountain"],["かわ","kawa","river"],["うみ","umi","sea"],
+["そら","sora","sky"],["つき","tsuki","moon"],["ほし","hoshi","star"],["あめ","ame","rain"],
+["ゆき","yuki","snow"],["もり","mori","forest"],["みず","mizu","water"],["いけ","ike","pond"],
+["て","te","hand"],["みみ","mimi","ear"],["あし","ashi","leg"],["かみ","kami","paper"],
+["あたま","atama","head"],["こころ","kokoro","heart"],["ちから","chikara","strength"],
+["ほん","hon","book"],["みせ","mise","shop"],["へや","heya","room"],["いす","isu","chair"],
+["つくえ","tsukue","desk"],["まど","mado","window"],["かさ","kasa","umbrella"],
+["くつ","kutsu","shoes"],["ふく","fuku","clothes"],["とけい","tokei","clock"],
+["おかね","okane","money"],["くるま","kuruma","car"],["ひこうき","hikouki","airplane"],
+["さかな","sakana","fish"],["やさい","yasai","vegetables"],["たまご","tamago","egg"],
+["おちゃ","ocha","tea"],["そば","soba","buckwheat noodles"],["りんご","ringo","apple"],
+["なまえ","namae","name"],["ともだち","tomodachi","friend"],["せんせい","sensei","teacher"],
+["おとこ","otoko","man"],["おんな","onna","woman"],["こども","kodomo","child"],
+["にほん","nihon","Japan"],["にほんご","nihongo","Japanese"],["ことば","kotoba","word"],
+["はなし","hanashi","story"],["おんがく","ongaku","music"],["がくせい","gakusei","student"],
+["めがね","megane","glasses"],["でんわ","denwa","telephone"],["かぜ","kaze","wind"],
+["あかい","akai","red"],["あおい","aoi","blue"],["しろい","shiroi","white"],
+["たかい","takai","tall"],["やすい","yasui","cheap"],["はやい","hayai","fast"],
+["おそい","osoi","slow"],["あつい","atsui","hot"],["さむい","samui","cold"],
+["いたい","itai","it hurts"],["おいしい","oishii","delicious"],["たのしい","tanoshii","fun"],
+["うれしい","ureshii","happy"],["ちいさい","chiisai","small"],["おおきい","ookii","big"],
+["しろ","shiro","white"],["くろ","kuro","black"],["みどり","midori","green"],
+["あさひ","asahi","morning sun"],["よる","yoru","night"],["ひる","hiru","noon"],
+["あした","ashita","tomorrow"],["きのう","kinou","yesterday"],["きょう","kyou","today"],
+["まいにち","mainichi","every day"],["なつ","natsu","summer"],["はる","haru","spring"],
+["ふゆ","fuyu","winter"],["はい","hai","yes"],["いいえ","iie","no"],["また","mata","again"],
+["すき","suki","to like"],["とうきょう","toukyou","Tokyo"],["せかい","sekai","world"],
+["おと","oto","sound"],["いろ","iro","color"],["かたち","katachi","shape"],
+["たいこ","taiko","drum"],["ちかてつ","chikatetsu","subway"],["やま","yama","mountain"]
+];
+const WORDS_KATA = [
+["カ","ka","mosquito"],["イカ","ika","squid"],["カキ","kaki","oyster"],
+["シカ","shika","deer"],["サケ","sake","salmon"],["ウシ","ushi","cow"],
+["ウマ","uma","horse"],["タコ","tako","octopus"],["カニ","kani","crab"],
+["クマ","kuma","bear"],["サル","saru","monkey"],["トリ","tori","bird"],
+["ネコ","neko","cat"],["イヌ","inu","dog"],["カメ","kame","turtle"],
+["ヘビ","hebi","snake"],["ワニ","wani","crocodile"],["アリ","ari","ant"],
+["ハチ","hachi","bee"],["ウニ","uni","sea urchin"],["ハト","hato","pigeon"],
+["カラス","karasu","crow"],["キノコ","kinoko","mushroom"],["サクラ","sakura","cherry blossom"],
+["ネズミ","nezumi","mouse"],["キツネ","kitsune","fox"],["タヌキ","tanuki","raccoon dog"],
+["クジラ","kujira","whale"],["ゾウ","zou","elephant"],["ブタ","buta","pig"],
+["ヤギ","yagi","goat"],["ウサギ","usagi","rabbit"],["ニワトリ","niwatori","chicken"],
+["スイカ","suika","watermelon"],["ミカン","mikan","mandarin"],["ナス","nasu","eggplant"],
+["マメ","mame","bean"],["コメ","kome","rice"],["サカナ","sakana","fish"],
+["モモ","momo","peach"],["クリ","kuri","chestnut"],["ムギ","mugi","wheat"],
+["エビ","ebi","shrimp"],["トマト","tomato","tomato"],
+["カメラ","kamera","camera"],["テレビ","terebi","TV"],["コーヒー","koohii","coffee"],
+["バス","basu","bus"],["タクシー","takushii","taxi"],["ホテル","hoteru","hotel"],
+["ケーキ","keeki","cake"],["アイス","aisu","ice cream"],["テスト","tesuto","test"],
+["ノート","nooto","notebook"],["ドア","doa","door"],["スカート","sukaato","skirt"],
+["テニス","tenisu","tennis"],["ミルク","miruku","milk"],["トマト","tomato","tomato"],
+["メール","meeru","email"],["ラーメン","raamen","ramen"],["カレー","karee","curry"],
+["サラダ","sarada","salad"],["クラス","kurasu","class"],["カード","kaado","card"],
+["ビル","biru","building"],["ボール","booru","ball"],["ゲーム","geemu","game"],
+["ギター","gitaa","guitar"],["ピアノ","piano","piano"],["ペン","pen","pen"],
+["シャツ","shatsu","shirt"],["チーズ","chiizu","cheese"],["オレンジ","orenji","orange"],
+["テーブル","teeburu","table"],["アメリカ","amerika","America"],["メキシコ","mekishiko","Mexico"],
+["スペイン","supein","Spain"],["イタリア","itaria","Italy"],["カナダ","kanada","Canada"],
+["ニュース","nyuusu","news"],["レストラン","resutoran","restaurant"],
+["スマホ","sumaho","smartphone"],["ネクタイ","nekutai","necktie"],["トイレ","toire","toilet"],
+["キロ","kiro","kilo"],["メモ","memo","memo"],["ソフト","sofuto","software"],
+["ホーム","hoomu","platform"],["セール","seeru","sale"],["レモン","remon","lemon"],
+["バナナ","banana","banana"],["メロン","meron","melon"],["ケース","keesu","case"]
+];
+
+
+/* ── Course order ──
+   A vocabulary-first sequence: characters arrive in the order the words need
+   them, so each unlock immediately unlocks phrases you can read. Ordered from
+   the ten beginner sections of a well-known course's Japanese path; the
+   sentences below are our own, written from the same vocabulary. っ and ー are
+   deliberately absent — they're written marks, not sounds to learn, so they're
+   introduced in passing and treated as free when checking what you can read. */
+const COURSE_ORDER = (
+  "す し と お ちゃ く だ さ い み ず で ご は ん "+
+  "や せ か こ しゃ ひ "+
+  "に ち ば け な ま た あ "+
+  "れ ラ メ ン サ ダ ピ ザ "+
+  "ブ ジ ル じ ア リ カ き ほ ベ ト ナ ム "+
+  "ホ テ ど バ ス て コ ビ ニ が "+
+  "わ の ぶ ろ つ "+
+  "ぐ も え じゃ "+
+  "ぷ う"
+).split(" ");
+
+/* Our own sentences, built only from the vocabulary each section introduces. */
+const PHRASES = [
+["すしとおちゃ、ください。","sushi to ocha, kudasai","Sushi and tea, please."],
+["ごはん、ください。","gohan, kudasai","Rice, please."],
+["みずです。","mizu desu","It's water."],
+["おちゃとみず、ください。","ocha to mizu, kudasai","Tea and water, please."],
+["せんせいはやさしいです。","sensei wa yasashii desu","The teacher is kind."],
+["いしゃはかっこいいです。","isha wa kakkoii desu","The doctor is cool."],
+["やさしいひとです。","yasashii hito desu","A kind person."],
+["こんにちは。","konnichiwa","Hello."],
+["こんばんは、けんです。","konbanwa, ken desu","Good evening, I'm Ken."],
+["またあした。","mata ashita","See you tomorrow."],
+["なおみさん、こんにちは。","naomi-san, konnichiwa","Hello, Naomi."],
+["ラーメンはおいしいです。","raamen wa oishii desu","The ramen is delicious."],
+["これはサラダですか。","kore wa sarada desu ka","Is this salad?"],
+["ピザはおいしいですか。","piza wa oishii desu ka","Is the pizza delicious?"],
+["わたしはブラジルじんじゃないです。","watashi wa burajiru-jin ja nai desu","I'm not Brazilian."],
+["ブラジルはおおきいです。","burajiru wa ookii desu","Brazil is big."],
+["にほんじんですか。","nihon-jin desu ka","Are you Japanese?"],
+["ベトナムはちいさいですか。","betonamu wa chiisai desu ka","Is Vietnam small?"],
+["ホテルはここです。","hoteru wa koko desu","The hotel is here."],
+["バスていはどこですか。","basutei wa doko desu ka","Where is the bus stop?"],
+["コンビニはここですか。","konbini wa koko desu ka","Is the convenience store here?"],
+["だいがくはどこですか。","daigaku wa doko desu ka","Where is the university?"],
+["わたしのかばんはあかいです。","watashi no kaban wa akai desu","My bag is red."],
+["しろいてぶくろです。","shiroi tebukuro desu","White gloves."],
+["くつはここです。","kutsu wa koko desu","The shoes are here."],
+["やまぐちさんはともだちです。","yamaguchi-san wa tomodachi desu","Yamaguchi is my friend."],
+["たなかさんはやさしいです。","tanaka-san wa yasashii desu","Tanaka is kind."],
+["いいえ、カナダじんじゃないです。","iie, kanada-jin ja nai desu","No, not Canadian."],
+["いまなんじですか。","ima nanji desu ka","What time is it now?"],
+["にじです。","niji desu","It's two o'clock."],
+["すみません、いちじですか。","sumimasen, ichiji desu ka","Excuse me, is it one o'clock?"],
+["ちずはどこですか。","chizu wa doko desu ka","Where is the map?"],
+["ちかてつはここです。","chikatetsu wa koko desu","The subway is here."],
+["くうこうはどこですか。","kuukou wa doko desu ka","Where is the airport?"],
+["これはわたしのかさです。","kore wa watashi no kasa desu","This is my umbrella."],
+["これはきっぷじゃないです。","kore wa kippu ja nai desu","This isn't a ticket."]
+];
 
 const ROUND_LEN = 12;
 
@@ -415,7 +576,19 @@ function sayKana(ch, queue=false, pause=false){ say((pause?"\u3001":"")+ch, .8, 
 function buzz(ms){ if(navigator.vibrate) try{navigator.vibrate(ms);}catch(e){} }
 
 /* ───────────────────── deck ───────────────────── */
+const ALL_CHARS = (()=>{
+  const m=new Map();
+  [...BASE,...DAKUTEN,...YOON].forEach(([h,k,r,g])=>{
+    m.set(h,{ch:h,romaji:r,group:g,script:"hira"});
+    m.set(k,{ch:k,romaji:r,group:g,script:"kata"});
+  });
+  return m;
+})();
+
 function deck(){
+  // the course sequence ignores the set and extras toggles: it is one fixed
+  // path that mixes hiragana, katakana, dakuten and combos as the words need them
+  if(S.order==="course") return COURSE_ORDER.map(ch=>ALL_CHARS.get(ch)).filter(Boolean);
   let rows=[...BASE];
   if(S.extras.dakuten) rows=rows.concat(DAKUTEN);
   if(S.extras.yoon) rows=rows.concat(YOON);
@@ -466,6 +639,48 @@ function checkUnlock(){
   activePool().forEach(c=>{ const r=S.stats[c.ch]; if(r) r.lok=0; });
   save();
   return [d[level()-1]];
+}
+
+
+/* ── readable words ──
+   A word counts as readable when every kana in it is unlocked. Combos (きゃ)
+   are matched as single units, and the katakana length mark ー is free since
+   it isn't a character you have to learn. */
+const YOON_SET = new Set(YOON.flatMap(r=>[r[0],r[1]]));
+function spellable(word, have){
+  for(let i=0;i<word.length;){
+    if(word[i]==="ー"||word[i]==="っ"||word[i]==="ッ"||"、。！？".includes(word[i])){ i++; continue; }
+    const pair=word.slice(i,i+2);
+    if(YOON_SET.has(pair)){ if(!have.has(pair)) return false; i+=2; continue; }
+    if(!have.has(word[i])) return false;
+    i++;
+  }
+  return true;
+}
+// words readable with the current pool, newest character first, shortest first
+function readableWords(pool, newest, limit=5){
+  const have=new Set(pool.map(c=>c.ch));
+  const kata=pool.some(c=>c.script==="kata"), hira=pool.some(c=>c.script==="hira");
+  let list=[];
+  if(S.order==="course") list=list.concat(PHRASES);
+  if(hira) list=list.concat(WORDS_HIRA);
+  if(kata) list=list.concat(WORDS_KATA);
+  const seen=new Set();
+  const ok=list.filter(w=>{
+    if(seen.has(w[0])) return false; seen.add(w[0]);
+    return spellable(w[0], have);
+  });
+  // words using the new character come first; then real multi-kana words ahead
+  // of one-character nouns, which are true but make a dull list; then shuffled
+  // so you don't see the same five every time
+  shuffle(ok);
+  ok.sort((a,b)=>{
+    const an=newest&&a[0].includes(newest)?0:1, bn=newest&&b[0].includes(newest)?0:1;
+    if(an!==bn) return an-bn;
+    const a1=a[0].length===1?1:0, b1=b[0].length===1?1:0;
+    return a1-b1;
+  });
+  return ok.slice(0,limit);
 }
 
 const pick=a=>a[Math.floor(Math.random()*a.length)];
@@ -637,6 +852,17 @@ function showUnlock(gained){
   $("unlockLine").textContent = n>1
     ? `You've mastered the last set. These join the practice.`
     : `${gained[0].ch} is “${gained[0].romaji}”. It joins the practice now.`;
+  // the payoff: real words the newly unlocked set can spell
+  const words=readableWords(activePool(), gained[gained.length-1].ch, 5);
+  const wl=$("wordList"); wl.innerHTML="";
+  $("wordsHead").style.display = words.length ? "" : "none";
+  words.forEach(w=>{
+    const b=document.createElement("button");
+    b.className="word";
+    b.innerHTML=`<b>${w[0]}</b><span><span class="mean">${w[2]}</span><br><span class="rom">${w[1]}</span></span><span class="spk">🔊</span>`;
+    b.onclick=()=>say(w[0], .85);
+    wl.appendChild(b);
+  });
   tone([523,659,784,1047],.16,"triangle",.11);
   say(gained.map(g=>g.ch).join("、"), .85);
   openSheet("sheetUnlock");
@@ -687,10 +913,13 @@ function renderSettings(){
   const or=$("orderRow"); or.innerHTML="";
   or.append(
     chip("Gojūon あいうえお", S.order==="gojuon", ()=>S.order="gojuon"),
-    chip("Most common first", S.order==="freq", ()=>S.order="freq")
+    chip("Most common first", S.order==="freq", ()=>S.order="freq"),
+    chip("Course order (phrases)", S.order==="course", ()=>S.order="course")
   );
   const first=deck().slice(0,6).map(c=>c.ch).join(" ");
-  $("orderNote").textContent = (S.order==="freq"
+  $("orderNote").textContent = (S.order==="course"
+    ? "Characters arrive in the order real phrases need them, so every unlock opens up sentences you can read. This path is fixed — it mixes hiragana, katakana, dakuten and combos, so the set and extras choices above don't apply. "
+    : S.order==="freq"
     ? "Characters arrive in order of how often they appear in real Japanese, so you can start decoding text sooner. "
     : "Characters arrive in dictionary order, matching every kana chart, index, and verb conjugation table. ")
     + "Starts: " + first + " …  Each order keeps its own separate ladder.";
