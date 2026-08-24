@@ -176,6 +176,7 @@
   .word .mean{font-size:15px;font-weight:700}
   .word .spk{margin-left:auto;font-size:17px;opacity:.75}
   .slots{display:flex;justify-content:center;gap:8px;margin-bottom:2px}
+  .slots[hidden]{display:none}
   .slot{
     min-width:54px;height:62px;border-radius:13px;display:grid;place-items:center;
     font-family:var(--kana);font-size:30px;color:var(--washi);
@@ -833,7 +834,7 @@ function next(){
   // appearing at half rate, so reading practice doesn't disappear mid-level
   if(due.length && Math.random()<WORD_SHARE) return askWord(pick(due), pool);
   if(!due.length && feat.length && Math.random()<WORD_SHARE/2) return askWord(pick(feat), pool);
-  els.slots.hidden=true; els.answers.className="answers";
+  els.slots.hidden=true; els.slots.innerHTML=""; els.answers.className="answers";
   q.kind="kana";
   q.mode = S.dir==="mixed" ? (Math.random()<.5?"kana2romaji":"romaji2kana") : S.dir;
   const target=weighted(pool);
