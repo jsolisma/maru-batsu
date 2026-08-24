@@ -101,6 +101,31 @@ all characters in play at once. Your ladder position is kept and waiting.
 **Restart this ladder** drops back to two characters and clears the rep counts,
 while leaving your lifetime accuracy history intact.
 
+### Spelling questions
+
+As soon as your unlocked characters can spell a whole word, the drill starts
+mixing in spelling questions: you're shown the meaning and its romaji, and you
+build the word by tapping kana tiles in order (with a couple of decoy tiles
+mixed in). Tap the slots — or press Backspace — to undo.
+
+Each level features up to three words, chosen to include the character you just
+unlocked, and each has to be spelled correctly **5 times** before the next
+character arrives. Characters still need 10 each. Both counters reset together
+at every unlock. The unlock screen tells you which words the new level is
+drilling. Once a word has banked its 5, it keeps coming back at half rate so
+reading practice doesn't vanish for the rest of the level — spellings stay
+around 17% of all questions.
+
+In course order, spelling starts at level 2 — す and し already spell すし.
+
+**A note on pacing.** The gate is strict by design, and it compounds: a full
+climb through the 71-character course order runs to roughly 40,000 answers at
+85% accuracy, almost all of it the per-character gate multiplied across 71
+levels. If that's too slow, the four constants at the top of the script are the
+dials — `TO_UNLOCK` (10), `WORD_GOAL` (5), `FEATURED` (3), and `WORD_SHARE`
+(0.3, how often a question is a spelling). `TO_UNLOCK` is the one that moves the
+total; halving it roughly halves the climb.
+
 ### Everything else
 
 Rounds are 12 questions. Characters you get wrong come back more often — the

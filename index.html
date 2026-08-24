@@ -175,6 +175,18 @@
   .word .rom{font-size:12.5px;color:#a8b8d4;font-weight:700;letter-spacing:.02em}
   .word .mean{font-size:15px;font-weight:700}
   .word .spk{margin-left:auto;font-size:17px;opacity:.75}
+  .slots{display:flex;justify-content:center;gap:8px;margin-bottom:2px}
+  .slot{
+    min-width:54px;height:62px;border-radius:13px;display:grid;place-items:center;
+    font-family:var(--kana);font-size:30px;color:var(--washi);
+    background:rgba(255,255,255,.07);border:2px dashed rgba(255,255,255,.28);padding:0 6px
+  }
+  .slot.filled{background:var(--washi);color:var(--sumi);border-style:solid;border-color:var(--washi)}
+  .slot.ok{background:var(--matcha);color:#fff;border-color:var(--matcha)}
+  .slot.no{background:var(--shu);color:#fff;border-color:var(--shu)}
+  .ans.used{opacity:.28}
+  .answers.tiles{grid-template-columns:repeat(4,1fr)}
+  .answers.tiles .ans{min-height:60px;font-size:30px}
 
   /* ── round summary ── */
   .big{text-align:center;font-size:64px;line-height:1;margin:6px 0 2px}
@@ -212,6 +224,7 @@
     <p class="reading" id="reading">&nbsp;</p>
   </main>
 
+  <div class="slots" id="slots" hidden onclick="undoTile()" title="Tap to undo"></div>
   <div class="answers" id="answers"></div>
 </div>
 
@@ -512,10 +525,15 @@ const DEFAULTS = {
   ladder:true,                  // unlock characters one at a time
   order:"gojuon",               // "gojuon" = alphabet order, "freq" = most common first
   levels:{},                    // how many characters are unlocked, per character set
+  featured:{},                  // words in rotation this level, per character set
+  wordStats:{},                 // reps per word
   stats:{}, answered:0, correct:0, best:0
 };
 const START_CHARS = 2;          // the ladder opens with this many
 const TO_UNLOCK = 10;           // correct answers needed on each of them
+const WORD_GOAL = 5;            // correct spellings needed on each featured word
+const FEATURED = 3;             // how many words a level puts in rotation
+const WORD_SHARE = .3;          // roughly how often a question is a spelling
 let S = load();
 function load(){
   try{
@@ -523,7 +541,8 @@ function load(){
     return {...structuredClone(DEFAULTS), ...raw,
       sets:{...DEFAULTS.sets,...(raw.sets||{})},
       extras:{...DEFAULTS.extras,...(raw.extras||{})},
-      levels:raw.levels||{}, stats:raw.stats||{}};
+      levels:raw.levels||{}, featured:raw.featured||{},
+      wordStats:raw.wordStats||{}, stats:raw.stats||{}};
   }catch(e){ return structuredClone(DEFAULTS); }
 }
 let saveTimer=null;
@@ -624,19 +643,25 @@ function activePool(){ const d=deck(); return S.ladder ? d.slice(0, level()) : d
 function okCount(ch){ const r=S.stats[ch]; return r&&r.lok?r.lok:0; }
 // how far the current level is from unlocking the next character
 function ladderProgress(){
-  const pool=activePool();
-  const have=pool.reduce((a,c)=>a+Math.min(okCount(c.ch),TO_UNLOCK),0);
-  return {have, need:pool.length*TO_UNLOCK, pool};
+  const pool=activePool(), words=S.ladder?featuredWords():[];
+  const have=pool.reduce((a,c)=>a+Math.min(okCount(c.ch),TO_UNLOCK),0)
+           + words.reduce((a,w)=>a+Math.min(wordOk(w[0]),WORD_GOAL),0);
+  const need=pool.length*TO_UNLOCK + words.length*WORD_GOAL;
+  return {have, need, pool, words};
 }
 // returns the characters unlocked by this answer, if any
 function checkUnlock(){
   const d=deck();
   if(level()>=d.length) return [];
   if(!activePool().every(c=>okCount(c.ch)>=TO_UNLOCK)) return [];
+  // the level's featured words have to be spelled WORD_GOAL times too
+  if(!featuredWords().every(w=>wordOk(w[0])>=WORD_GOAL)) return [];
   setLevel(level()+1);
   // every character starts the new level owing its reps again, so the newcomer
   // is practiced alongside the old ones instead of hogging every question
   activePool().forEach(c=>{ const r=S.stats[c.ch]; if(r) r.lok=0; });
+  Object.values(S.wordStats).forEach(r=>{ r.lok=0; });
+  delete S.featured[courseKey()];   // the new level picks its own words
   save();
   return [d[level()-1]];
 }
@@ -682,6 +707,59 @@ function readableWords(pool, newest, limit=5){
   });
   return ok.slice(0,limit);
 }
+
+
+/* ── spelling questions ──
+   Once the unlocked characters can spell a whole word, the drill starts asking
+   you to build it from tiles. Each level features a few words, and each has to
+   be spelled correctly WORD_GOAL times — the same gate the characters have. */
+function units(word){
+  const out=[];
+  for(let i=0;i<word.length;){
+    const pair=word.slice(i,i+2);
+    if(YOON_SET.has(pair)){ out.push(pair); i+=2; }
+    else { out.push(word[i]); i++; }
+  }
+  return out;
+}
+// words clean enough to spell: no length marks, small tsu, or punctuation
+function spellableWords(pool){
+  const have=new Set(pool.map(c=>c.ch));
+  const kata=pool.some(c=>c.script==="kata"), hira=pool.some(c=>c.script==="hira");
+  let list=[];
+  if(S.order==="course"||hira) list=list.concat(WORDS_HIRA);
+  if(S.order==="course"||kata) list=list.concat(WORDS_KATA);
+  const seen=new Set();
+  return list.filter(w=>{
+    if(/[ー っッ、。！？]/.test(w[0])) return false;
+    if(seen.has(w[0])) return false; seen.add(w[0]);
+    const u=units(w[0]);
+    return u.length>=2 && u.length<=4 && u.every(x=>have.has(x));
+  });
+}
+function wrec(k){ const r=S.wordStats[k]||(S.wordStats[k]={seen:0,ok:0,lok:0}); if(r.lok==null) r.lok=0; return r; }
+function wordOk(k){ const r=S.wordStats[k]; return r&&r.lok?r.lok:0; }
+// the words this level is drilling — chosen once per level and remembered
+function featuredWords(){
+  const key=courseKey(), lv=level();
+  const saved=S.featured[key];
+  if(saved && saved.lv===lv) {
+    const live=saved.words.filter(w=>WORD_INDEX.has(w));
+    if(live.length) return live.map(w=>WORD_INDEX.get(w));
+  }
+  const avail=spellableWords(activePool());
+  if(!avail.length){ S.featured[key]={lv, words:[]}; save(); return []; }
+  const newest=activePool()[level()-1];
+  // prefer words that use the character you just unlocked
+  const rank=shuffle(avail.slice()).sort((a,b)=>{
+    const an=newest&&a[0].includes(newest.ch)?0:1, bn=newest&&b[0].includes(newest.ch)?0:1;
+    return an-bn;
+  });
+  const picked=rank.slice(0,FEATURED);
+  S.featured[key]={lv, words:picked.map(w=>w[0])}; save();
+  return picked;
+}
+const WORD_INDEX = new Map([...WORDS_HIRA,...WORDS_KATA].map(w=>[w[0],w]));
 
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
@@ -734,9 +812,9 @@ function distractors(target, pool, n, wider){
 const $=id=>document.getElementById(id);
 const els={
   glyph:$("glyph"), stamp:$("stamp"), ask:$("ask"), answers:$("answers"),
-  reading:$("reading"), fill:$("fill"), streak:$("streak")
+  reading:$("reading"), fill:$("fill"), streak:$("streak"), slots:$("slots")
 };
-let q={mode:"kana2romaji", answer:null, locked:false};
+let q={mode:"kana2romaji", kind:"kana", answer:null, locked:false, built:[], target:[]};
 let round={i:0, ok:0, missed:[]};
 let streak=0;
 
@@ -748,6 +826,15 @@ function next(){
   const pool=activePool();
   if(all.length<4 || !pool.length){ openSheet("sheetSettings"); return; }
   q.locked=false;
+  // sometimes ask for a whole word instead of a single character
+  const feat = S.ladder ? featuredWords() : spellableWords(pool).slice(0,FEATURED);
+  const due = feat.filter(w=>!S.ladder || wordOk(w[0])<WORD_GOAL);
+  // words that still owe reps come up often; once they're banked they keep
+  // appearing at half rate, so reading practice doesn't disappear mid-level
+  if(due.length && Math.random()<WORD_SHARE) return askWord(pick(due), pool);
+  if(!due.length && feat.length && Math.random()<WORD_SHARE/2) return askWord(pick(feat), pool);
+  els.slots.hidden=true; els.answers.className="answers";
+  q.kind="kana";
   q.mode = S.dir==="mixed" ? (Math.random()<.5?"kana2romaji":"romaji2kana") : S.dir;
   const target=weighted(pool);
   q.answer=target;
@@ -757,6 +844,7 @@ function next(){
   const kanaPrompt = q.mode==="kana2romaji";
   els.ask.textContent = kanaPrompt ? "Which sound is this?" : "Which character makes this sound?";
   els.glyph.className = "glyph" + (kanaPrompt ? "" : " romaji");
+  els.glyph.style.fontSize="";
   els.glyph.textContent = kanaPrompt ? target.ch : target.romaji;
   // retrigger entry animation
   els.glyph.style.animation="none"; void els.glyph.offsetWidth; els.glyph.style.animation="";
@@ -772,6 +860,78 @@ function next(){
     els.answers.appendChild(b);
   });
   paint();
+}
+
+
+function askWord(word, pool){
+  q.kind="word"; q.word=word; q.built=[];
+  const target=units(word[0]);
+  q.target=target;
+  els.stamp.className="stamp"; els.stamp.innerHTML="";
+  els.reading.innerHTML="&nbsp;";
+  els.ask.textContent="Spell this word";
+  els.glyph.className="glyph romaji";
+  els.glyph.style.fontSize="clamp(26px,7vw,40px)";
+  els.glyph.innerHTML=`${word[2]}<div style="font-size:.5em;color:#6b7488;margin-top:8px">${word[1]}</div>`;
+  els.glyph.style.animation="none"; void els.glyph.offsetWidth; els.glyph.style.animation="";
+
+  // empty slots, one per character
+  els.slots.hidden=false; els.slots.innerHTML="";
+  target.forEach(()=>{ const d=document.createElement("div"); d.className="slot"; d.textContent=""; els.slots.appendChild(d); });
+
+  // tiles: the word's characters plus a couple of decoys from the same pool
+  const decoys=shuffle(pool.filter(c=>!target.includes(c.ch))).slice(0,2).map(c=>c.ch);
+  const tiles=shuffle([...target,...decoys]);
+  els.answers.className="answers tiles"; els.answers.innerHTML="";
+  tiles.forEach(ch=>{
+    const b=document.createElement("button");
+    b.className="ans jp"; b.textContent=ch;
+    b.setAttribute("aria-label","character "+ch);
+    b.onclick=()=>placeTile(ch,b);
+    els.answers.appendChild(b);
+  });
+  paint();
+}
+function placeTile(ch, btn){
+  if(q.locked || q.built.length>=q.target.length) return;
+  q.built.push({ch,btn}); btn.classList.add("used"); btn.disabled=true;
+  const slot=els.slots.children[q.built.length-1];
+  slot.textContent=ch; slot.classList.add("filled");
+  if(q.built.length===q.target.length) judgeWord();
+}
+function undoTile(){
+  if(q.locked || !q.built.length) return;
+  const last=q.built.pop();
+  last.btn.classList.remove("used"); last.btn.disabled=false;
+  const slot=els.slots.children[q.built.length];
+  slot.textContent=""; slot.className="slot";
+}
+function judgeWord(){
+  q.locked=true;
+  const built=q.built.map(b=>b.ch).join("");
+  const right = built===q.target.join("");
+  const r=wrec(q.word[0]); r.seen++; S.answered++;
+  [...els.answers.children].forEach(b=>b.disabled=true);
+  [...els.slots.children].forEach((sl,i)=>{
+    sl.classList.add(q.built[i].ch===q.target[i] ? "ok" : "no");
+  });
+  els.stamp.innerHTML = right?MARU:BATSU; els.stamp.classList.add("show");
+  if(right){
+    r.ok++; r.lok++; S.correct++; round.ok++; streak++; S.best=Math.max(S.best,streak);
+    els.reading.innerHTML=`<span class="ok">○ ${q.word[0]} · ${q.word[1]}</span>`;
+    tone([660,880,1180],.13); buzz(18); say(q.word[0], .85);
+  }else{
+    streak=0; round.missed.push({ch:q.word[0], romaji:q.word[1]});
+    els.reading.innerHTML=`<span class="no">✕ ${q.word[0]} · ${q.word[1]}</span>`;
+    [...els.slots.children].forEach((sl,i)=>{ sl.textContent=q.target[i]; });
+    tone([300,196],.22,"sawtooth",.14); buzz([28,60,28]); say(q.word[0], .8);
+  }
+  const gained = right && S.ladder ? checkUnlock() : [];
+  save(); paint(); round.i++;
+  setTimeout(()=>{
+    if(gained.length) return showUnlock(gained);
+    round.i>=ROUND_LEN ? endRound() : next();
+  }, right?1100:2000);
 }
 
 function answer(choice, btn){
@@ -827,9 +987,10 @@ function paint(){
     const maxed = pool.length>=all;
     $("levelChip").className="chip level"+(maxed?" max":"");
     $("levelLabel").textContent = maxed ? `All ${all}` : `Level ${pool.length-START_CHARS+1}`;
+    const wn=(ladderProgress().words||[]).length;
     $("ladderLabel").textContent = maxed
       ? `Every character unlocked · ${have}/${need} mastered`
-      : `${have}/${need} to unlock character ${pool.length+1}`;
+      : `${have}/${need} to unlock character ${pool.length+1}` + (wn?` · ${wn} word${wn>1?"s":""} in rotation`:"");
     els.fill.style.width=(need?have/need*100:0)+"%";
   }else{
     $("levelChip").className="chip level";
@@ -853,7 +1014,10 @@ function showUnlock(gained){
     ? `You've mastered the last set. These join the practice.`
     : `${gained[0].ch} is “${gained[0].romaji}”. It joins the practice now.`;
   // the payoff: real words the newly unlocked set can spell
-  const words=readableWords(activePool(), gained[gained.length-1].ch, 5);
+  // show the words this level will actually ask you to spell
+  const feat=S.ladder?featuredWords():[];
+  const words = feat.length ? feat : readableWords(activePool(), gained[gained.length-1].ch, 5);
+  $("wordsHead").textContent = feat.length ? "Words to spell this level" : "Words you can read now";
   const wl=$("wordList"); wl.innerHTML="";
   $("wordsHead").style.display = words.length ? "" : "none";
   words.forEach(w=>{
@@ -1000,7 +1164,8 @@ document.querySelectorAll(".sheet").forEach(s=>{
   });
 });
 document.addEventListener("keydown", e=>{
-  if(/^[1-4]$/.test(e.key)){
+  if(e.key==="Backspace" && q.kind==="word"){ e.preventDefault(); undoTile(); return; }
+  if(/^[1-8]$/.test(e.key)){
     const b=els.answers.children[+e.key-1];
     if(b && !b.disabled) b.click();
   }
