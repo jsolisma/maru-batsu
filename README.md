@@ -108,8 +108,9 @@ mixing in spelling questions: you're shown the meaning and its romaji, and you
 build the word by tapping kana tiles in order (with a couple of decoy tiles
 mixed in). Tap the slots — or press Backspace — to undo.
 
-Each level features up to three words, chosen to include the character you just
-unlocked, and each has to be spelled correctly **5 times** before the next
+Every word your unlocked characters can spell is in rotation, and each one has
+to be spelled correctly **5 times** before the next character arrives. The
+rotation grows fast: 10 words at 10 characters, 65 at 30, 129 by the end, and each has to be spelled correctly **5 times** before the next
 character arrives. Characters still need 10 each. Both counters reset together
 at every unlock. The unlock screen tells you which words the new level is
 drilling. Once a word has banked its 5, it keeps coming back at half rate so
@@ -118,11 +119,12 @@ around 17% of all questions.
 
 In course order, spelling starts at level 2 — す and し already spell すし.
 
-**A note on pacing.** The gate is strict by design, and it compounds: a full
-climb through the 71-character course order runs to roughly 40,000 answers at
-85% accuracy, almost all of it the per-character gate multiplied across 71
-levels. If that's too slow, the four constants at the top of the script are the
-dials — `TO_UNLOCK` (10), `WORD_GOAL` (5), `FEATURED` (3), and `WORD_SHARE`
+**A note on pacing.** The gate is strict by design, and it compounds: with every
+spellable word gated, a full climb through the 71-character course order runs to
+roughly 78,000 answers at 85% accuracy — about half characters, half spelling.
+Late levels are long: level 70 asks for 710 character reps and 645 word reps
+before it opens the next character. If that's too slow, the four constants at the top of the script are the
+dials — `TO_UNLOCK` (10), `WORD_GOAL` (5), and `WORD_SHARE`
 (0.3, how often a question is a spelling). `TO_UNLOCK` is the one that moves the
 total; halving it roughly halves the climb.
 

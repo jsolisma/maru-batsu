@@ -533,7 +533,7 @@ const DEFAULTS = {
 const START_CHARS = 2;          // the ladder opens with this many
 const TO_UNLOCK = 10;           // correct answers needed on each of them
 const WORD_GOAL = 5;            // correct spellings needed on each featured word
-const FEATURED = 3;             // how many words a level puts in rotation
+// every word your unlocked characters can spell goes into rotation
 const WORD_SHARE = .3;          // roughly how often a question is a spelling
 let S = load();
 function load(){
@@ -756,7 +756,7 @@ function featuredWords(){
     const an=newest&&a[0].includes(newest.ch)?0:1, bn=newest&&b[0].includes(newest.ch)?0:1;
     return an-bn;
   });
-  const picked=rank.slice(0,FEATURED);
+  const picked=rank;
   S.featured[key]={lv, words:picked.map(w=>w[0])}; save();
   return picked;
 }
@@ -828,7 +828,7 @@ function next(){
   if(all.length<4 || !pool.length){ openSheet("sheetSettings"); return; }
   q.locked=false;
   // sometimes ask for a whole word instead of a single character
-  const feat = S.ladder ? featuredWords() : spellableWords(pool).slice(0,FEATURED);
+  const feat = S.ladder ? featuredWords() : spellableWords(pool);
   const due = feat.filter(w=>!S.ladder || wordOk(w[0])<WORD_GOAL);
   // words that still owe reps come up often; once they're banked they keep
   // appearing at half rate, so reading practice doesn't disappear mid-level
