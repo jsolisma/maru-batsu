@@ -197,6 +197,24 @@ you played on. Nothing is sent anywhere. Progress does not sync between devices,
 and clearing your browser data or using private browsing will erase it.
 **Erase all progress** in 📊 wipes the key immediately.
 
+## Tests
+
+`test.js` loads the real `index.html` in a headless browser (jsdom) and drives
+it by clicking actual buttons, so it covers the interface rather than a copy of
+the logic. It checks the answer flow, spelling questions (every tile is an
+unlocked character, undo works, correct spellings score), the level picker's
+numbering, that no two orders share a ladder, that both gates must be met to
+unlock, persistence across a reload, and that no character question ever shows
+two correct answers.
+
+```bash
+npm install jsdom
+node test.js        # 58 checks
+```
+
+It isn't shipped to the site — `index.html` has no dependencies and doesn't
+reference it.
+
 ## Design notes
 
 The prompt sits in a 原稿用紙 (*genkō yōshi*) cell — the squared manuscript paper

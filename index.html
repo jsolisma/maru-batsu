@@ -559,16 +559,17 @@ const TO_UNLOCK = 10;           // correct answers needed on each of them
 const WORD_GOAL = 5;            // correct spellings needed on each featured word
 // every word your unlocked characters can spell goes into rotation
 const WORD_SHARE = .3;          // roughly how often a question is a spelling
+const clone = o => JSON.parse(JSON.stringify(o));   // works on older iOS too
 let S = load();
 function load(){
   try{
     const raw = JSON.parse(localStorage.getItem(KEY)||"{}");
-    return {...structuredClone(DEFAULTS), ...raw,
+    return {...clone(DEFAULTS), ...raw,
       sets:{...DEFAULTS.sets,...(raw.sets||{})},
       extras:{...DEFAULTS.extras,...(raw.extras||{})},
       levels:raw.levels||{}, featured:raw.featured||{},
       wordStats:raw.wordStats||{}, stats:raw.stats||{}};
-  }catch(e){ return structuredClone(DEFAULTS); }
+  }catch(e){ return clone(DEFAULTS); }
 }
 let saveTimer=null;
 function save(){
@@ -652,6 +653,8 @@ function deck(){
    are in play". You climb by answering every unlocked character correctly
    TO_UNLOCK times; then the next character in gojūon order joins. */
 function courseKey(){
+  // course order is one fixed path, so it ignores the set and extras toggles
+  if(S.order==="course") return "#c";
   return (S.sets.hira?"h":"")+(S.sets.kata?"k":"")
        + (S.extras.dakuten?"+d":"")+(S.extras.yoon?"+y":"")
        + (S.order==="freq"?"#f":"");   // each order keeps its own ladder
@@ -769,8 +772,9 @@ function featuredWords(){
   const key=courseKey(), lv=level();
   const saved=S.featured[key];
   if(saved && saved.lv===lv) {
-    const live=saved.words.filter(w=>WORD_INDEX.has(w));
-    if(live.length) return live.map(w=>WORD_INDEX.get(w));
+    const have=new Set(activePool().map(c=>c.ch));
+    const live=saved.words.filter(w=>WORD_INDEX.has(w) && units(w).every(u=>have.has(u)));
+    if(live.length===saved.words.length && live.length) return live.map(w=>WORD_INDEX.get(w));
   }
   const avail=spellableWords(activePool());
   if(!avail.length){ S.featured[key]={lv, words:[]}; save(); return []; }
@@ -952,7 +956,8 @@ function judgeWord(){
     tone([300,196],.22,"sawtooth",.14); buzz([28,60,28]); say(q.word[0], .8);
   }
   const gained = right && S.ladder ? checkUnlock() : [];
-  save(); paint(); round.i++;
+  round.i++;
+  save(); paint();          // count this answer before repainting the score
   setTimeout(()=>{
     if(gained.length) return showUnlock(gained);
     round.i>=ROUND_LEN ? endRound() : next();
@@ -995,8 +1000,8 @@ function answer(choice, btn){
     }else say(pick(NO));
   }
   const gained = right && S.ladder ? checkUnlock() : [];
-  save(); paint();
   round.i++;
+  save(); paint();          // count this answer before repainting the score
   setTimeout(()=>{
     if(gained.length) return showUnlock(gained);
     round.i>=ROUND_LEN ? endRound() : next();
@@ -1215,7 +1220,7 @@ $("resetLadder").onclick=()=>{
 $("resetAll").onclick=()=>{
   if(!confirm("Erase every character record, streak, and setting on this device?")) return;
   try{ localStorage.removeItem(KEY); }catch(e){}
-  S=structuredClone(DEFAULTS); streak=0; renderStats(); closeSheets(); newRound();
+  S=clone(DEFAULTS); streak=0; renderStats(); closeSheets(); newRound();
 };
 document.querySelectorAll(".sheet").forEach(s=>{
   s.addEventListener("click", e=>{
