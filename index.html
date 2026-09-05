@@ -165,6 +165,20 @@
   .hk.l2{background:#6b5320;color:#ffe6a8}
   .hk.l3{background:#12603f;color:#b7f2d8}
   .empty{color:#a8b8d4;font-size:14px}
+  .caret{font-size:11px;opacity:.7}
+  button.chip{cursor:pointer}
+  button.chip:active{transform:scale(.96)}
+  .lvGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(66px,1fr));gap:8px;margin-top:12px}
+  .lv{
+    padding:9px 4px;border-radius:13px;background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.14);display:grid;justify-items:center;gap:2px
+  }
+  .lv b{font-family:var(--kana);font-size:23px;font-weight:400;line-height:1.1}
+  .lv span{font-size:10.5px;color:#a8b8d4;font-weight:700}
+  .lv.now{background:var(--kohaku);color:#2a1d00;border-color:var(--kohaku)}
+  .lv.now span{color:#5c4200}
+  .lv.done{background:rgba(255,255,255,.15)}
+  .lv:active{transform:scale(.95)}
   .word{
     display:flex;align-items:center;gap:12px;width:100%;text-align:left;
     padding:11px 13px;margin-bottom:7px;border-radius:14px;
@@ -204,7 +218,7 @@
     <button class="icon-btn" id="btnSettings" aria-label="Settings">⚙</button>
     <div class="chip streak" id="streakChip" title="Streak">🔥 <span id="streak">0</span></div>
     <div class="spacer"></div>
-    <div class="chip level" id="levelChip">⛩ <span id="levelLabel">Level 1</span></div>
+    <button class="chip level" id="levelChip" aria-haspopup="dialog">⛩ <span id="levelLabel">Level 1</span> <span class="caret">▾</span></button>
     <button class="icon-btn" id="btnStats" aria-label="Progress">📊</button>
   </header>
 
@@ -277,6 +291,16 @@
     <div class="heat" id="heat"></div>
     <button class="cta ghost" id="closeStats">Back to practice</button>
     <button class="cta ghost" id="resetAll">Erase all progress</button>
+  </div>
+</div>
+
+<!-- level picker -->
+<div class="sheet" id="sheetLevels">
+  <div class="panel" role="dialog" aria-label="Choose a level">
+    <h2>Choose a level</h2>
+    <p class="note">Each level is the set of characters in play. Jumping doesn't skip the work — the counts reset, so the level still has to be earned before it opens the next.</p>
+    <div class="lvGrid" id="lvGrid"></div>
+    <button class="cta ghost" id="closeLevels">Close</button>
   </div>
 </div>
 
@@ -1114,6 +1138,38 @@ function renderSettings(){
     chip("はい / ざんねん", S.voiceMode==="react", ()=>{ S.voiceMode="react"; say("\u306f\u3044\uff01"); })
   );
 }
+
+/* Jump to any level. The rep counts reset the same way they do on a normal
+   unlock, so a level you skip forward to still has to be earned before it
+   opens the next one. */
+
+/* Level picker — every level is one character wider than the last, so each
+   button shows the character that level adds. */
+function renderLevels(){
+  const d=deck(), now=level(), g=$("lvGrid");
+  g.innerHTML="";
+  for(let n=START_CHARS;n<=d.length;n++){
+    const lv=n-START_CHARS+1;          // same numbering as the header chip
+    const b=document.createElement("button");
+    b.className="lv"+(n===now?" now":(n<now?" done":""));
+    b.innerHTML=`<b>${d[n-1].ch}</b><span>${n===now?"now":lv}</span>`;
+    b.setAttribute("aria-label",`Level ${lv}, ${n} characters, newest ${d[n-1].romaji}`);
+    b.onclick=()=>{ applyJump(n); closeSheets(); newRound(); };
+    g.appendChild(b);
+  }
+}
+
+function applyJump(n){
+  const d=deck();
+  n=Math.max(START_CHARS, Math.min(d.length, n|0));
+  if(n===level()) return;
+  setLevel(n);
+  d.forEach(c=>{ if(S.stats[c.ch]) S.stats[c.ch].lok=0; });
+  Object.values(S.wordStats).forEach(r=>{ r.lok=0; });
+  delete S.featured[courseKey()];
+  save(); paint();
+}
+
 function renderStats(){
   const all=deck().length;
   $("sLevel").textContent = S.ladder ? `${level()}/${all}` : `${all}/${all}`;
@@ -1138,6 +1194,11 @@ function renderStats(){
 /* ───────────────────── wiring ───────────────────── */
 $("btnSettings").onclick=()=>{ renderSettings(); openSheet("sheetSettings"); };
 $("btnStats").onclick=()=>{ renderStats(); openSheet("sheetStats"); };
+$("levelChip").onclick=()=>{
+  if(!S.ladder) { renderSettings(); return openSheet("sheetSettings"); }
+  renderLevels(); openSheet("sheetLevels");
+};
+$("closeLevels").onclick=closeSheets;
 $("closeSettings").onclick=()=>{ audio(); closeSheets(); newRound(); };
 $("closeStats").onclick=closeSheets;
 $("unlockBtn").onclick=()=>{

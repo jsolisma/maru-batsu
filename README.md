@@ -101,6 +101,14 @@ all characters in play at once. Your ladder position is kept and waiting.
 **Restart this ladder** drops back to two characters and clears the rep counts,
 while leaving your lifetime accuracy history intact.
 
+**Jump to a level** — tap the ⛩ level chip at the top of the screen and a grid
+of every level opens, each button showing the character that level adds. Your
+current level is highlighted and the ones behind you are shaded. Skipping ahead
+doesn't skip the work: the rep counts reset exactly as they do at a normal
+unlock, so the level you land on still has to be earned before it opens the next
+one. Each character set and order keeps its own position, so jumping in one
+doesn't disturb the others.
+
 ### Spelling questions
 
 As soon as your unlocked characters can spell a whole word, the drill starts
